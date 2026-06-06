@@ -45,5 +45,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.os }}-build
-          path: dist/*.{dmg,zip,exe,AppImage,deb}
-          if-no-files-found: ignore
+          path: |
+            dist/*.dmg
+            dist/*.zip
+            dist/*.exe
+            dist/*.AppImage
+            dist/*.deb
+            dist/win-unpacked/*.exe
+          if-no-files-found: warn
