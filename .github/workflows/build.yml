@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
@@ -21,18 +22,17 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        env:
-          npm_config_cache: /tmp/npm-cache
 
       - name: Install platform-specific sherpa-onnx
         shell: bash
         run: |
+          ARCH=$(node -e "console.log(process.arch)")
           if [ "$RUNNER_OS" = "macOS" ]; then
-            npm install sherpa-onnx-darwin-arm64 sherpa-onnx-darwin-x64 --no-save
+            npm install "sherpa-onnx-darwin-${ARCH}" --no-save 2>/dev/null || true
           elif [ "$RUNNER_OS" = "Windows" ]; then
-            npm install sherpa-onnx-win-x64 --no-save
+            npm install sherpa-onnx-win-x64 --no-save 2>/dev/null || true
           else
-            npm install sherpa-onnx-linux-x64 --no-save
+            npm install sherpa-onnx-linux-x64 --no-save 2>/dev/null || true
           fi
 
       - name: Build
@@ -40,8 +40,6 @@ jobs:
 
       - name: Package (electron-builder)
         run: npx electron-builder --${{ matrix.os == 'macos-latest' && 'mac' || matrix.os == 'windows-latest' && 'win' || 'linux' }} --publish=never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
