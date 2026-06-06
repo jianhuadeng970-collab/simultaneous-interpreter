@@ -1,0 +1,10 @@
+services:
+  relay:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+    # For production with TLS, uncomment the next line and see fly.toml
+    # or put this behind nginx/Caddy.

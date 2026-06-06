@@ -1,0 +1,22 @@
+# fly.io deployment config — free tier (~$0/month for small usage)
+# Deploy with: fly launch (first time) then fly deploy
+# Docs: https://fly.io/docs
+
+app = 'interpreter-relay'
+primary_region = 'hkg'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[[services]]
+  internal_port = 8080
+  protocol = 'tcp'
+
+  [[services.ports]]
+    port = 443
+    handlers = ['tls', 'http']
+
+  [[services.ports]]
+    port = 80
+    handlers = ['http']
+    force_https = true

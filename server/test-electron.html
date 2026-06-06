@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html><body>
+<h1>Relay Test</h1>
+<div id="log"></div>
+<script>
+const RELAY = 'https://dusty-turkey-78.jianhuadeng970-collab.deno.net'
+const log = (msg) => {
+  const d = document.getElementById('log')
+  d.innerHTML += '<p>' + msg + '</p>'
+  console.log(msg)
+}
+
+async function test() {
+  log('Testing: ' + RELAY)
+
+  // Test 1: HTTP fetch
+  log('1. Fetch /api/rooms...')
+  try {
+    const r = await fetch(RELAY + '/api/rooms', { method: 'POST' })
+    const data = await r.json()
+    log('   OK: ' + data.roomCode)
+
+    // Test 2: WebSocket
+    const wsUrl = RELAY.replace('https://', 'wss://')
+    log('2. WebSocket: ' + wsUrl + '/ws?...')
+    const ws = new WebSocket(wsUrl + '/ws?room=' + data.roomCode + '&token=' + data.hostToken)
+    ws.binaryType = 'arraybuffer'
+    ws.onopen = () => log('   WS opened!')
+    ws.onerror = (e) => log('   WS ERROR')
+    ws.onclose = (e) => log('   WS closed: ' + e.code)
+    ws.onmessage = (e) => log('   WS message: ' + (typeof e.data === 'string' ? e.data : 'binary(' + e.data.byteLength + ' bytes)'))
+  } catch(e) {
+    log('   FAIL: ' + e.message)
+  }
+}
+test()
+</script>
+</body></html>

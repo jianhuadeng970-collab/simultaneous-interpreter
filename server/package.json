@@ -1,0 +1,13 @@
+{
+  "name": "interpreter-relay-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebSocket relay server for Simultaneous Interpreter cross-network connections",
+  "main": "relay-server.js",
+  "scripts": {
+    "start": "node relay-server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

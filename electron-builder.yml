@@ -1,0 +1,52 @@
+appId: com.interpreter.simultaneous
+productName: Simultaneous Interpreter
+directories:
+  buildResources: resources
+  output: dist
+afterPack: ./scripts/after-pack.js
+files:
+  - '**/*'
+  - '!**/.vscode/**'
+  - '!src/**'
+  - '!dist/**'
+  - '!release/**'
+  - '!models/**'
+  - '!server/**'
+  - '!scripts/**'
+  - '!**/*.ts'
+  - '!**/tsconfig*.json'
+  - '!{.env.example,.gitignore}'
+  - '!{package-lock.json,electron.vite.config.ts,postcss.config.js,tailwind.config.ts}'
+  - '!resources/**'
+extraResources:
+  - from: models
+    to: models
+mac:
+  artifactName: ${name}-${version}-${arch}.${ext}
+  target:
+    - dmg
+    - zip
+  files:
+    - '!node_modules/sherpa-onnx-win-*/**'
+    - '!node_modules/sherpa-onnx-linux-*/**'
+win:
+  artifactName: ${name}-${version}-${arch}-setup.${ext}
+  target:
+    - target: nsis
+      arch:
+        - x64
+  files:
+    - '!node_modules/sherpa-onnx-darwin-*/**'
+    - '!node_modules/sherpa-onnx-linux-*/**'
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  differentialPackage: false
+linux:
+  artifactName: ${name}-${version}-${arch}.${ext}
+  target:
+    - AppImage
+    - deb
+  files:
+    - '!node_modules/sherpa-onnx-win-*/**'
+    - '!node_modules/sherpa-onnx-darwin-*/**'
