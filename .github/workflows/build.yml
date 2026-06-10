@@ -1,4 +1,4 @@
-name: Build Multi-Platform
+name: Build
 
 on:
   push:
@@ -15,41 +15,23 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install deps
+        run: npm install --ignore-scripts
+      - name: Rebuild native deps
+        run: npx electron-rebuild
 
-      - name: Install platform-specific sherpa-onnx
-        shell: bash
-        run: |
-          ARCH=$(node -e "console.log(process.arch)")
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            npm install "sherpa-onnx-darwin-${ARCH}" --no-save 2>/dev/null || true
-          elif [ "$RUNNER_OS" = "Windows" ]; then
-            npm install sherpa-onnx-win-x64 --no-save 2>/dev/null || true
-          else
-            npm install sherpa-onnx-linux-x64 --no-save 2>/dev/null || true
-          fi
-
-      - name: Build
+      - name: Build app
         run: npx electron-vite build
 
-      - name: Package (electron-builder)
-        run: npx electron-builder --${{ matrix.os == 'macos-latest' && 'mac' || matrix.os == 'windows-latest' && 'win' || 'linux' }} --publish=never
+      - name: Package
+        run: npx electron-builder --${{ runner.os == 'macOS' && 'mac' || runner.os == 'Windows' && 'win' || 'linux' }} --publish=never
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.os }}-build
-          path: |
-            dist/*.dmg
-            dist/*.zip
-            dist/*.exe
-            dist/*.AppImage
-            dist/*.deb
-            dist/win-unpacked/*.exe
+          name: ${{ runner.os }}-build
+          path: dist/*.{dmg,zip,exe,AppImage,deb}
           if-no-files-found: warn
