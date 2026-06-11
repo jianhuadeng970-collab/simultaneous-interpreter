@@ -39,8 +39,18 @@ function createWindow(): void {
   }
 }
 
+// Must register IPC BEFORE app is ready
 registerIpcHandlers()
-createWindow()
+
+app.whenReady().then(() => {
+  createWindow()
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow()
+    }
+  })
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
