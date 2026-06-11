@@ -65,6 +65,7 @@ const ASR_SENSEVOICE_DIR = 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17'
 
 const BASE_URLS = {
   huggingface: 'https://huggingface.co',
+  hfMirror: 'https://hf-mirror.com',
   github: 'https://github.com'
 }
 
@@ -140,19 +141,15 @@ const MODELS: ModelInfo[] = [
     category: 'tts',
     files: [
       {
-        url: '', // Pre-bundled or extracted from archive
+        // Download individual files from HuggingFace (bypasses tar extraction issues on Windows)
+        url: `${BASE_URLS.huggingface}/csukuangfj/vits-piper-en_US-lessac-medium/resolve/main/en_US-lessac-medium.onnx`,
         filename: 'tts/en/en_US-lessac-medium.onnx'
       },
       {
-        url: '',
+        url: `${BASE_URLS.huggingface}/csukuangfj/vits-piper-en_US-lessac-medium/resolve/main/tokens.txt`,
         filename: 'tts/en/tokens.txt'
       }
     ],
-    // For download: get the archive and extract
-    downloadArchive: {
-      url: `${BASE_URLS.github}/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-lessac-medium.tar.bz2`,
-      archiveFilename: 'tts/en/vits-piper-en_US-lessac-medium.tar.bz2'
-    },
     postDownload: 'none'
   }
 ]
@@ -358,7 +355,45 @@ export class ModelManager extends EventEmitter {
     this.emit('progress', progress)
   }
 
-  private downloadFile(url: string, dest: string, signal: AbortSignal): Promise<void> {
+  /**
+   * Download a file with automatic mirror fallback.
+   * Tries the primary URL first. If it fails with ETIMEDOUT or ENOTFOUND,
+   * automatically retries with mirror URLs (hf-mirror.com for HuggingFace).
+   */
+  private async downloadFile(url: string, dest: string, signal: AbortSignal): Promise<void> {
+    // Build mirror URL list
+    const urls: string[] = [url]
+
+    // If huggingface.co, add hf-mirror.com as fallback
+    if (url.includes('huggingface.co')) {
+      urls.push(url.replace('huggingface.co', 'hf-mirror.com'))
+    }
+    // If github.com, try a second attempt (same URL, just retry)
+    if (url.includes('github.com')) {
+      urls.push(url) // Same URL, retry once
+    }
+
+    let lastError: Error | null = null
+    for (const tryUrl of urls) {
+      try {
+        await this.downloadSingleFile(tryUrl, dest, signal)
+        return // success!
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err))
+        // Only fall through for network errors (timeout, DNS, etc)
+        const msg = lastError.message
+        if (msg.includes('ETIMEDOUT') || msg.includes('ENOTFOUND') ||
+            msg.includes('timed out') || msg.includes('ECONNRESET')) {
+          console.warn(`[ModelManager] ${tryUrl} failed (${msg}), trying next mirror...`)
+          continue
+        }
+        throw lastError // Non-network error, don't retry
+      }
+    }
+    throw lastError || new Error(`All mirrors failed for ${url}`)
+  }
+
+  private downloadSingleFile(url: string, dest: string, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
       const file = createWriteStream(dest)
 
@@ -375,14 +410,15 @@ export class ModelManager extends EventEmitter {
 
       signal.addEventListener('abort', onAbort, { once: true })
 
-      https.get(url, { signal }, (response) => {
+      const req = https.get(url, { signal, timeout: 30000 }, (response) => {
         // Handle redirects
         if (response.statusCode === 301 || response.statusCode === 302) {
           const redirectUrl = response.headers.location
           if (redirectUrl) {
             file.close()
             try { unlinkSync(dest) } catch { /*ignore*/ }
-            this.downloadFile(redirectUrl, dest, signal).then(resolve).catch(reject)
+            signal.removeEventListener('abort', onAbort)
+            this.downloadSingleFile(redirectUrl, dest, signal).then(resolve).catch(reject)
             return
           }
         }
@@ -412,7 +448,16 @@ export class ModelManager extends EventEmitter {
             try { unlinkSync(dest) } catch { /* ignore */ }
             reject(err)
           })
-      }).on('error', (err) => {
+      })
+
+      req.on('timeout', () => {
+        req.destroy()
+        file.close()
+        try { unlinkSync(dest) } catch { /* ignore */ }
+        reject(new Error(`ETIMEDOUT: ${url}`))
+      })
+
+      req.on('error', (err) => {
         file.close()
         try { unlinkSync(dest) } catch { /* ignore */ }
         reject(err)
