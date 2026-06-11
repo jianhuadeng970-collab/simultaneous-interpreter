@@ -357,20 +357,19 @@ export class ModelManager extends EventEmitter {
 
   /**
    * Download a file with automatic mirror fallback.
-   * Tries the primary URL first. If it fails with ETIMEDOUT or ENOTFOUND,
-   * automatically retries with mirror URLs (hf-mirror.com for HuggingFace).
+   * Tries hf-mirror.com first (faster in China), then falls back to
+   * huggingface.co if mirror fails.
    */
   private async downloadFile(url: string, dest: string, signal: AbortSignal): Promise<void> {
-    // Build mirror URL list
-    const urls: string[] = [url]
+    // Build URL list: mirror first for China accessibility
+    const urls: string[] = []
 
-    // If huggingface.co, add hf-mirror.com as fallback
     if (url.includes('huggingface.co')) {
+      // Try mirror first (works in China), then original
       urls.push(url.replace('huggingface.co', 'hf-mirror.com'))
-    }
-    // If github.com, try a second attempt (same URL, just retry)
-    if (url.includes('github.com')) {
-      urls.push(url) // Same URL, retry once
+      urls.push(url)
+    } else {
+      urls.push(url)
     }
 
     let lastError: Error | null = null
